@@ -1,4 +1,4 @@
-package com.bookfinder.catalog.dto;
+package com.bookfinder.common.dto;
 
 import lombok.*;
 
