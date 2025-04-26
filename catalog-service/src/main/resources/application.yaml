@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/booksdb
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  flyway:
+    enabled: true
+server:
+  port: 8081
