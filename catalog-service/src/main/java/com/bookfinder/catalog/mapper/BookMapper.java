@@ -9,16 +9,13 @@ import java.time.Instant;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface BookMapper {
 
-    /* ---------- DTO → Entity ---------- */
+    @Mapping(source = "year", target = "publishYear")   // маппим год
     BookEntity toEntity(BookDto dto);
 
-    /* ---------- PATCH Entity ---------- */
-    void updateEntity(@MappingTarget BookEntity entity, BookDto dto);
-
-    /* ---------- Entity → DTO ---------- */
     BookDto toDto(BookEntity entity);
 
-    /* ---------- post-processing ---------- */
+    void updateEntity(@MappingTarget BookEntity entity, BookDto dto);
+
     @AfterMapping
     default void fillDefaults(@MappingTarget BookEntity e) {
         if (e.getAuthor()  == null || e.getAuthor().isBlank())  e.setAuthor("Unknown author");
@@ -27,3 +24,5 @@ public interface BookMapper {
         if (e.getParsedAt()== null)                             e.setParsedAt(Instant.now());
     }
 }
+
+
