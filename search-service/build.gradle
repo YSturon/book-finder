@@ -7,15 +7,16 @@ plugins {
 java { sourceCompatibility = JavaVersion.VERSION_21 }
 
 dependencies {
-    // REST-приложение
+    implementation project(':common')                                // DTO
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    // WebClient для вызова внешних API
+    implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
-    // Feign-клиент, чтобы писать в catalog-service
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign:4.1.1'
+    implementation 'org.jsoup:jsoup:1.17.2'
 
-    // JSON-модели
-    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    compileOnly 'org.projectlombok:lombok:1.18.32'
+    annotationProcessor 'org.projectlombok:lombok:1.18.32'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
+

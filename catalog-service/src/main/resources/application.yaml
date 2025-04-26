@@ -11,3 +11,18 @@ spring:
     enabled: true
 server:
   port: 8081
+logging:
+  level:
+    # входной REST-контроллер
+    com.bookfinder.search.controller: DEBUG
+    # основной сервис поиска
+    com.bookfinder.search.service.SearchService: DEBUG
+    # HTTP-клиент (WebClient)
+    org.springframework.web.reactive.function.client: TRACE
+    # Feign-клиент в catalog-service
+    feign: DEBUG
+
+  #  если нужен файл-лог – оставьте этот блок,
+  #  иначе закомментируйте
+  file:
+    name: logs/search-service.log

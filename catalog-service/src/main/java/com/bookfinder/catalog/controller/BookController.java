@@ -1,6 +1,6 @@
 package com.bookfinder.catalog.controller;
 
-import com.bookfinder.catalog.dto.BookDto;
+import com.bookfinder.common.dto.BookDto;
 import com.bookfinder.catalog.service.BookService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

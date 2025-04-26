@@ -1,13 +1,29 @@
 package com.bookfinder.common.dto;
 
-import lombok.*;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import lombok.Builder;
+import lombok.Value;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+import java.time.Instant;
+
+@Value
+@Builder
+@JsonDeserialize(builder = BookDto.BookDtoBuilder.class)
+@JsonInclude(JsonInclude.Include.ALWAYS)
 public class BookDto {
-    private Long id;
-    private String title;
-    private String author;
-    private Integer publishYear;
-    private String genre;
-    private String summary;
+
+    String  title;
+    String  author;
+    Integer year;
+    String  genre;
+    String  summary;
+    String  coverUrl;
+    String  source;
+    String  sourceUrl;
+    Instant parsedAt;
+
+    @JsonPOJOBuilder(withPrefix = "")
+    public static class BookDtoBuilder {}
 }

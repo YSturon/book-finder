@@ -1,6 +1,6 @@
 package com.bookfinder.catalog.service.impl;
 
-import com.bookfinder.catalog.dto.BookDto;
+import com.bookfinder.common.dto.BookDto;
 import com.bookfinder.catalog.mapper.BookMapper;
 import com.bookfinder.catalog.model.BookEntity;
 import com.bookfinder.catalog.repository.BookRepository;

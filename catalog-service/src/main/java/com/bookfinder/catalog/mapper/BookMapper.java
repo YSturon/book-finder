@@ -1,15 +1,29 @@
 package com.bookfinder.catalog.mapper;
 
-import com.bookfinder.catalog.dto.BookDto;
 import com.bookfinder.catalog.model.BookEntity;
-import org.mapstruct.Mapper;
-import org.mapstruct.MappingTarget;
+import com.bookfinder.common.dto.BookDto;
+import org.mapstruct.*;
 
-@Mapper(componentModel = "spring")
+import java.time.Instant;
+
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface BookMapper {
-    BookDto toDto(BookEntity entity);
+
+    /* ---------- DTO → Entity ---------- */
     BookEntity toEntity(BookDto dto);
 
-    // для PATCH/PUT
+    /* ---------- PATCH Entity ---------- */
     void updateEntity(@MappingTarget BookEntity entity, BookDto dto);
+
+    /* ---------- Entity → DTO ---------- */
+    BookDto toDto(BookEntity entity);
+
+    /* ---------- post-processing ---------- */
+    @AfterMapping
+    default void fillDefaults(@MappingTarget BookEntity e) {
+        if (e.getAuthor()  == null || e.getAuthor().isBlank())  e.setAuthor("Unknown author");
+        if (e.getTitle()   == null || e.getTitle().isBlank())   e.setTitle("Untitled");
+        if (e.getSource()  == null || e.getSource().isBlank())  e.setSource("unknown");
+        if (e.getParsedAt()== null)                             e.setParsedAt(Instant.now());
+    }
 }

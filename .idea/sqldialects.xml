@@ -2,5 +2,7 @@
 <project version="4">
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/catalog-service/src/main/resources/db/migration/V1__create_books.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/catalog-service/src/main/resources/db/migration/V3__add_cover_parsed_source.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/catalog-service/src/main/resources/db/migration/V4__add_source_url.sql" dialect="PostgreSQL" />
   </component>
 </project>

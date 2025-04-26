@@ -1,6 +1,7 @@
 package com.bookfinder.catalog.service;
 
-import com.bookfinder.catalog.dto.BookDto;
+import com.bookfinder.common.dto.BookDto;
+
 
 import java.util.List;
 

@@ -7,4 +7,4 @@
  */
 
 rootProject.name = 'book-finder'
-include 'catalog-service', 'search-service'
+include 'common', 'catalog-service', 'search-service'
