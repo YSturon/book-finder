@@ -17,7 +17,7 @@ import java.util.List;
 public class SearchController {
 
     private final SearchService service;
-    private final CatalogClient catalogClient;   // <-- добавили сюда
+    private final CatalogClient catalogClient;
 
     @PostMapping
     public ResponseEntity<List<BookDto>> search(@RequestBody SearchRequestDto req) {
@@ -26,7 +26,7 @@ public class SearchController {
                 .block();
 
         if (books != null && !books.isEmpty()) {
-            catalogClient.saveBatch(books);  // <-- теперь этот код компилируется
+            catalogClient.saveBatch(books);
         }
 
         return ResponseEntity.ok(books);

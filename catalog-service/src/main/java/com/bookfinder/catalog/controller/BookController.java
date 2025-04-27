@@ -6,9 +6,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.util.List;  
 
 @RestController
+@CrossOrigin(origins = "*")
 @RequestMapping("/api/v1/books")
 @RequiredArgsConstructor
 public class BookController {
