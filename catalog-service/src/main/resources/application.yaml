@@ -19,6 +19,8 @@ logging:
     com.bookfinder.search.service.SearchService: DEBUG
     # HTTP-клиент (WebClient)
     org.springframework.web.reactive.function.client: TRACE
+    org.springframework.web.reactive.function.client.ExchangeFunctions: TRACE
+    com.bookfinder.search.provider.LitresProvider: DEBUG
     # Feign-клиент в catalog-service
     feign: DEBUG
 

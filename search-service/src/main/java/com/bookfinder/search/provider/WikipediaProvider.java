@@ -2,12 +2,15 @@ package com.bookfinder.search.provider;
 
 import com.bookfinder.common.dto.BookDto;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.NullNode;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Instant;
 import java.util.regex.Matcher;
@@ -23,120 +26,99 @@ public class WikipediaProvider implements BookProvider {
 
     @Override
     public Flux<BookDto> search(String author, String title) {
-
         if (title == null || title.isBlank()) {
+            log.info("WikipediaProvider: empty title provided, skipping search.");
             return Flux.empty();
         }
 
-        String query = title.replace(' ', '_');
+        String query = title.trim().replace(' ', '_');
+        log.info("WikipediaProvider: searching for title '{}'.", query);
 
-        Mono<JsonNode> summaryMono = client.get()
-                .uri("/page/summary/{title}", query)
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .onErrorResume(e ->
-                        client.get()
-                                .uri("/page/search/{q}?limit=1", query)
-                                .retrieve()
-                                .bodyToMono(JsonNode.class)
-                                .flatMap(search ->
-                                        search.path("pages").isArray() && search.path("pages").size() > 0
-                                                ? client.get()
-                                                .uri("/page/summary/{title}",
-                                                        search.path("pages").get(0).path("key").asText())
-                                                .retrieve()
-                                                .bodyToMono(JsonNode.class)
-                                                : Mono.just(NullNode.getInstance())))
-                .defaultIfEmpty(NullNode.getInstance());
+        return fetchSummary(query)
+                .flatMap(summary -> {
+                    if (summary == null || summary.isMissingNode()) {
+                        log.warn("WikipediaProvider: summary is null or missing for '{}'.", query);
+                        return Mono.empty();
+                    }
 
-        Mono<JsonNode> metadataMono = client.get()
-                .uri("/page/metadata/{title}", query)
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .onErrorResume(e ->
-                        client.get()
-                                .uri("/page/search/{q}?limit=1", query)
-                                .retrieve()
-                                .bodyToMono(JsonNode.class)
-                                .flatMap(search ->
-                                        search.path("pages").isArray() && search.path("pages").size() > 0
-                                                ? client.get()
-                                                .uri("/page/metadata/{title}",
-                                                        search.path("pages").get(0).path("key").asText())
-                                                .retrieve()
-                                                .bodyToMono(JsonNode.class)
-                                                : Mono.just(NullNode.getInstance())))
-                .defaultIfEmpty(NullNode.getInstance());
+                    BookDto baseDto = buildDto(author, summary);
+                    String pageUrl = summary.path("content_urls").path("desktop").path("page").asText(null);
 
-        return Mono.zip(summaryMono, metadataMono)
-                .map(t -> buildDto(author, t.getT1(), t.getT2()))
+                    if (pageUrl != null) {
+                        return enrichFromHtml(baseDto, pageUrl);
+                    } else {
+                        return Mono.just(baseDto);
+                    }
+                })
                 .flux()
                 .onErrorResume(e -> {
-                    log.warn("Wikipedia error: {}", e.toString());
+                    log.error("WikipediaProvider: error during search for '{}': {}", query, e.getMessage(), e);
                     return Flux.empty();
                 });
     }
 
-    /* ==================================================================== */
+    private Mono<JsonNode> fetchSummary(String title) {
+        return client.get()
+                .uri("/page/summary/{title}", title)
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .doOnNext(summary -> log.info("WikipediaProvider: fetched summary for '{}'.", title))
+                .doOnError(e -> log.error("WikipediaProvider: failed to fetch summary for '{}': {}", title, e.getMessage()));
+    }
 
-    private BookDto buildDto(String requestedAuthor,
-                             JsonNode summary,
-                             JsonNode meta) {
-
-        String bookTitle   = blankToNull(summary.path("title").asText(null));
+    private BookDto buildDto(String requestedAuthor, JsonNode summary) {
+        String bookTitle = blankToNull(summary.path("title").asText(null));
         String summaryText = blankToNull(summary.path("extract").asText(null));
-        String sourceUrl   = blankToNull(summary.path("content_urls")
-                .path("desktop")
-                .path("page").asText(null));
+        String sourceUrl = blankToNull(summary.path("content_urls").path("desktop").path("page").asText(null));
+        String coverUrl = blankToNull(summary.path("originalimage").path("source").asText(null));
 
-        String genre = blankToNull(parseGenre(meta));
-        Integer year = parseYear(meta);
-
-        return BookDto.builder()
+        BookDto dto = BookDto.builder()
                 .title(bookTitle)
                 .author(blankToNull(requestedAuthor))
-                .year(year)
-                .genre(genre)
+                .year(null)
+                .genre(null)
                 .summary(summaryText)
-                .coverUrl(null)
+                .coverUrl(coverUrl)
                 .source("wikipedia")
                 .sourceUrl(sourceUrl)
                 .parsedAt(Instant.now())
                 .build();
+
+        log.info("WikipediaProvider: built base BookDto: {}", dto);
+        return dto;
     }
 
-    /* ==================================================================== */
+    private Mono<BookDto> enrichFromHtml(BookDto book, String pageUrl) {
+        return Mono.fromCallable(() -> {
+            Document doc = Jsoup.connect(pageUrl).get();
+            Element infobox = doc.selectFirst(".infobox");
 
-    private String parseGenre(JsonNode meta) {
-        if (!meta.hasNonNull("infoboxes")) return null;
+            if (infobox != null) {
+                String genre = infobox.select("th:contains(Genre) + td").text();
+                String published = infobox.select("th:contains(Published) + td").text();
 
-        Pattern th   = Pattern.compile("<th[^>]*>\\s*Genre\\s*</th>", Pattern.CASE_INSENSITIVE);
-        Pattern td   = Pattern.compile("<td[^>]*>(.*?)</td>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-        Pattern tags = Pattern.compile("<[^>]+>");
+                Integer year = extractYear(published);
 
-        for (JsonNode box : meta.get("infoboxes")) {
-            String html = box.asText("");
-            Matcher mTh = th.matcher(html);
-            if (mTh.find()) {
-                Matcher mTd = td.matcher(html.substring(mTh.end()));
-                if (mTd.find()) {
-                    String text = tags.matcher(mTd.group(1)).replaceAll("");
-                    text = text.replace('\n', ' ').trim();
-                    return blankToNull(text);
-                }
+                BookDto enrichedBook = book.toBuilder()
+                        .genre(blankToNull(genre))
+                        .year(year)
+                        .build();
+
+                log.info("WikipediaProvider: enriched BookDto with genre '{}' and year '{}'.", genre, year);
+                return enrichedBook;
+            } else {
+                log.info("WikipediaProvider: no infobox found at '{}'.", pageUrl);
+                return book;
             }
-        }
-        return null;
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
-    private Integer parseYear(JsonNode meta) {
-        if (!meta.hasNonNull("infoboxes")) return null;
-        Pattern year = Pattern.compile("\\b(1[89]\\d{2}|20\\d{2})\\b");
-        for (JsonNode box : meta.get("infoboxes")) {
-            Matcher m = year.matcher(box.asText(""));
-            if (m.find()) {
-                return Integer.valueOf(m.group());
-            }
+    private Integer extractYear(String text) {
+        if (text == null) return null;
+        Pattern yearPattern = Pattern.compile("\\b(1[89]\\d{2}|20\\d{2})\\b");
+        Matcher matcher = yearPattern.matcher(text);
+        if (matcher.find()) {
+            return Integer.valueOf(matcher.group());
         }
         return null;
     }

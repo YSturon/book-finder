@@ -9,19 +9,19 @@ import lombok.Value;
 import java.time.Instant;
 
 @Value
-@Builder
+@Builder(toBuilder = true)
 @JsonDeserialize(builder = BookDto.BookDtoBuilder.class)
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public class BookDto {
-
-    String  title;
-    String  author;
+    Long id;
+    String title;
+    String author;
     Integer year;
-    String  genre;
-    String  summary;
-    String  coverUrl;
-    String  source;
-    String  sourceUrl;
+    String genre;
+    String summary;
+    String coverUrl;
+    String source;
+    String sourceUrl;
     Instant parsedAt;
 
     @JsonPOJOBuilder(withPrefix = "")

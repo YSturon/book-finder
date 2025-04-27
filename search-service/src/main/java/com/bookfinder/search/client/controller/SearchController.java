@@ -1,4 +1,4 @@
-package com.bookfinder.search.controller;
+package com.bookfinder.search.client.controller;
 
 import com.bookfinder.common.dto.BookDto;
 import com.bookfinder.search.dto.SearchRequestDto;
@@ -17,8 +17,10 @@ public class SearchController {
     private final SearchService service;
 
     @PostMapping
-    public ResponseEntity<List<BookDto>> search(@RequestBody SearchRequestDto req){
-        List<BookDto> books = service.search(req.getAuthor(), req.getTitle());
+    public ResponseEntity<List<BookDto>> search(@RequestBody SearchRequestDto req) {
+        List<BookDto> books = service.search(req.getAuthor(), req.getTitle())
+                .collectList()
+                .block();
         return ResponseEntity.ok(books);
     }
 }

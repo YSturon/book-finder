@@ -1,74 +1,64 @@
 package com.bookfinder.search.service;
 
 import com.bookfinder.common.dto.BookDto;
-import com.bookfinder.search.client.CatalogClient;
 import com.bookfinder.search.provider.BookProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
-import java.text.Normalizer;
 import java.util.List;
-import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class SearchService {
 
     private final List<BookProvider> providers;
-    private final CatalogClient      catalogClient;
 
-    public List<BookDto> search(String author, String title) {
+    public Flux<BookDto> search(String author, String title) {
+        AtomicInteger wikipediaCount = new AtomicInteger();
+        AtomicInteger openLibraryCount = new AtomicInteger();
+        AtomicInteger gutendexCount = new AtomicInteger();
 
-        Flux<BookDto> pipeline = Flux.fromIterable(providers)
-                .flatMap(p -> p.search(author, title));
+        return Flux.fromIterable(providers)
+                .flatMap(p -> p.search(author, title))
+                .filter(book -> {
+                    boolean titleOk = book.getTitle() != null && !book.getTitle().isBlank();
+                    boolean authorOk = book.getAuthor() != null && !book.getAuthor().isBlank();
 
-        /* --- «умягчаем» проверку, если заданы ОБА параметра --- */
-        if (author != null && !author.isBlank() &&
-                title  != null && !title .isBlank()) {
-
-            final String reqTitle  = normalize(title);
-            final String reqAuthor = normalize(author);
-
-            pipeline = pipeline.filter(b -> {
-                /* проверяем название */
-                String bookTitle = normalize(b.getTitle());
-                boolean titleOk  = bookTitle.contains(reqTitle) || reqTitle.contains(bookTitle);
-
-                /* проверяем автора – только если он распаршен */
-                boolean authorOk = true;
-                if (b.getAuthor() != null && !b.getAuthor().isBlank()) {
-                    String bookAuthor = normalize(b.getAuthor());
-                    authorOk = bookAuthor.contains(reqAuthor) || reqAuthor.contains(bookAuthor);
-                }
-                return titleOk && authorOk;
-            });
-        }
-
-        /* --- финальные проверки и дедупликация --- */
-        List<BookDto> books = pipeline
-                .filter(b -> b.getTitle() != null && !b.getTitle().isBlank())
-                .distinct(b -> (normalize(b.getTitle()) + "|" +
-                        (b.getAuthor() == null ? "" : normalize(b.getAuthor()))))
-                .collectList()
-                .block();
-
-        log.info("Books to save: {}", books);
-        if (!books.isEmpty()) {
-            catalogClient.saveBatch(books);
-        }
-        return books;
+                    if ("wikipedia".equalsIgnoreCase(book.getSource())) {
+                        if (titleOk) {
+                            log.info("Keeping Wikipedia book: {}", book.getTitle());
+                            return true;
+                        } else {
+                            log.info("Dropping Wikipedia book (bad title): {}", book.getTitle());
+                            return false;
+                        }
+                    } else {
+                        if (titleOk && authorOk) {
+                            log.info("Keeping {} book: {}", book.getSource(), book.getTitle());
+                            return true;
+                        } else {
+                            log.info("Dropping {} book (bad title or author): {}", book.getSource(), book.getTitle());
+                            return false;
+                        }
+                    }
+                })
+                .doOnNext(book -> {
+                    switch (book.getSource().toLowerCase()) {
+                        case "wikipedia" -> wikipediaCount.incrementAndGet();
+                        case "openlibrary" -> openLibraryCount.incrementAndGet();
+                        case "gutendex" -> gutendexCount.incrementAndGet();
+                    }
+                })
+                .distinct(this::dedupKey)
+                .doOnComplete(() -> log.info("Books summary: Wikipedia={}, OpenLibrary={}, Gutendex={}",
+                        wikipediaCount.get(), openLibraryCount.get(), gutendexCount.get()));
     }
 
-    /* helper ------------------------------------------------------------- */
-    private static String normalize(String s) {
-        if (s == null) return "";
-        return Normalizer.normalize(s, Normalizer.Form.NFD)  // убираем диакритику
-                .replaceAll("\\p{M}", "")                   // "
-                .replaceAll("[\\p{Punct}\\s]+", " ")        // точки/запятые/лишние пробелы
-                .trim()
-                .toLowerCase(Locale.ROOT);
+    private String dedupKey(BookDto book) {
+        return (book.getTitle() + "::" + book.getAuthor()).toLowerCase();
     }
 }
