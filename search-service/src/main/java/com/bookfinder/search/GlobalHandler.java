@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.*;
 class GlobalHandler {
     @ExceptionHandler(Exception.class)
     ResponseEntity<String> any(Exception ex) {
-        ex.printStackTrace();                 // ← всё равно пишем в консоль
-        return ResponseEntity                // ← и отдаём текст клиенту
+        ex.printStackTrace();
+        return ResponseEntity
                 .status(500)
                 .body(ex.toString());
     }
