@@ -13,6 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/search")
+@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class SearchController {
 
